@@ -32,11 +32,9 @@ jobs:
           mkdir -p reports
           REPORT_FILE="reports/report_$(date +'%Y-%m-%d').json"
           echo "[]" > $REPORT_FILE 
-          
-          # Переменная для отслеживания ошибок
+
           TEST_FAILED=0
-          # Пороговое значение SMAPE
-          SMAPE_THRESHOLD=5.0
+          SMAPE_THRESHOLD=1.0
           
           for test_file in test_data/*_input.json; do
             base_name=$(basename "$test_file" "_input.json")
@@ -53,12 +51,11 @@ jobs:
             expected_values=$(jq -c '.expected_forecast_values' $expected_file)
             smape_value=$(echo $response | jq '.score.value')
           
-            # Проверка превышения порога
             if (( $(echo "$smape_value > $SMAPE_THRESHOLD" | bc -l) )); then
-              echo "❌ ОШИБКА: SMAPE ($smape_value%) превышает порог $SMAPE_THRESHOLD% для теста $base_name"
+              echo "SMAPE ($smape_value%) превышает порог $SMAPE_THRESHOLD% для теста $base_name"
               TEST_FAILED=1
             else
-              echo "✅ SMAPE ($smape_value%) в пределах допустимого порога $SMAPE_THRESHOLD%"
+              echo "SMAPE ($smape_value%) в пределах допустимого порога $SMAPE_THRESHOLD%"
             fi
           
             test_result=$(jq -n \
@@ -81,12 +78,11 @@ jobs:
           echo "Report generated: $REPORT_FILE"
           cat $REPORT_FILE
           
-          # Завершаем с ошибкой, если хотя бы один тест не прошел
           if [ $TEST_FAILED -eq 1 ]; then
-            echo "❌ Некоторые тесты не прошли проверку качества!"
+            echo "проверка не пройдена"
             exit 1
           else
-            echo "✅ Все тесты успешно прошли проверку качества!"
+            echo "проверка пройдена"
           fi
 
       - name: Commit and push report
@@ -94,6 +90,5 @@ jobs:
           git config --global user.name 'romanov73'
           git config --global user.email 'a.romanov@ulstu.ru'
           git add reports/
-          # Коммитим только если есть изменения
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: add weekly model quality report for $(date +'%Y-%m-%d')"
           git push
