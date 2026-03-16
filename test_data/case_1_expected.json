@@ -1,9 +1,100 @@
 {
-  "expected_forecast_values": [
-    0.663070988,
-    0.966993681883637,
-    1.5778524362309203,
-    0.8775953308322151
+  "timeSeries": {
+    "values": [
+      {
+        "date": "2005-12-31T09:32:57.120554",
+        "value": 0.663070988
+      },
+      {
+        "date": "2006-04-01T15:32:57.120554",
+        "value": 0.966993681883637
+      },
+      {
+        "date": "2006-07-01T21:32:57.120554",
+        "value": 1.5778524362309203
+      },
+      {
+        "date": "2006-10-01T03:32:57.120554",
+        "value": 0.8775953308322151
+      }
+    ],
+    "name": "Forecast of Model of null",
+    "length": 4,
+    "empty": false
+  },
+  "testForecast": {
+    "values": [
+      {
+        "date": "2005-04-29T09:32:57.120554",
+        "value": 2.015631486
+      },
+      {
+        "date": "2005-06-30T09:32:57.120554",
+        "value": 0.7705662245632662
+      },
+      {
+        "date": "2005-09-30T09:32:57.120554",
+        "value": 0.5933986183569417
+      },
+      {
+        "date": "2005-12-31T09:32:57.120554",
+        "value": 0.7534065825303778
+      }
+    ],
+    "name": "Forecast of Model of test part of null",
+    "length": 4,
+    "empty": false
+  },
+  "paramValues": [
+    {
+      "parameter": {
+        "name": "ALPHA",
+        "minValue": 0.1,
+        "maxValue": 0.99,
+        "optimizationStep": 0.1
+      },
+      "value": 0.10000000149011612,
+      "intValue": 0
+    },
+    {
+      "parameter": {
+        "name": "BETA",
+        "minValue": 0.1,
+        "maxValue": 0.99,
+        "optimizationStep": 0.1
+      },
+      "value": 0.10000000149011612,
+      "intValue": 0
+    },
+    {
+      "parameter": {
+        "name": "Gamma",
+        "minValue": 0.1,
+        "maxValue": 0.99,
+        "optimizationStep": 0.1
+      },
+      "value": 0.5000000074505806,
+      "intValue": 0
+    },
+    {
+      "parameter": {
+        "name": "Сезонность",
+        "minValue": 1,
+        "maxValue": 12,
+        "optimizationStep": 1
+      },
+      "value": 5,
+      "intValue": 5
+    }
   ],
-  "expected_method": "AddTrendAddSeason"
+  "score": {
+    "scoreMethod": {
+      "name": "Smape, %"
+    },
+    "value": 3.75
+  },
+  "timeSeriesMethod": {
+    "name": "Экспоненциальный метод с аддитивным трендом и аддитивной сезонностью (метод Хольта-Уинтерса)",
+    "key": "AddTrendAddSeason"
+  }
 }

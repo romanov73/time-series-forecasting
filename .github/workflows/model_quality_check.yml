@@ -32,39 +32,93 @@ jobs:
           mkdir -p reports
           REPORT_FILE="reports/report_$(date +'%Y-%m-%d').json"
           echo "[]" > $REPORT_FILE 
+          
+          # Переменная для отслеживания ошибок
+          TEST_FAILED=0
+          
           for test_file in test_data/*_input.json; do
             base_name=$(basename "$test_file" "_input.json")
             expected_file="test_data/${base_name}_expected.json"
-
+          
             echo "Testing $base_name..."
-
+          
             response=$(curl -s -X POST "http://localhost:8080/api/1.0/getForecast" \
               -H "Content-Type: application/json" \
               -d @$test_file)
-
+          
+            # Извлекаем данные из ответа API
             predicted_values=$(echo $response | jq -c '.timeSeries.values | map(.value)')
+            test_values=$(echo $response | jq -c '.testForecast.values | map(.value)')
             predicted_method=$(echo $response | jq -r '.timeSeriesMethod.name // "unknown"')
-            expected_values=$(jq -c '.expected_forecast_values' $expected_file)
             smape_value=$(echo $response | jq '.score.value')
-
+          
+            # Извлекаем параметры модели
+            alpha=$(echo $response | jq -r '.paramValues[] | select(.parameter.name=="ALPHA") | .value')
+            beta=$(echo $response | jq -r '.paramValues[] | select(.parameter.name=="BETA") | .value')
+            gamma=$(echo $response | jq -r '.paramValues[] | select(.parameter.name=="Gamma") | .value')
+            seasonality=$(echo $response | jq -r '.paramValues[] | select(.parameter.name=="Сезонность") | .value // select(.parameter.name=="Сезонность") | .intValue')
+          
+            # Пороговое значение SMAPE (можно настроить)
+            SMAPE_THRESHOLD=5.0
+          
+            # Проверка превышения порога
+            if (( $(echo "$smape_value > $SMAPE_THRESHOLD" | bc -l) )); then
+              echo "❌ ОШИБКА: SMAPE ($smape_value%) превышает порог $SMAPE_THRESHOLD% для теста $base_name"
+              TEST_FAILED=1
+          
+              # Дополнительная информация для отладки
+              echo "   Метод: $predicted_method"
+              echo "   Параметры модели: ALPHA=$alpha, BETA=$beta, Gamma=$gamma, Сезонность=$seasonality"
+              echo "   Прогнозные значения: $predicted_values"
+              echo "   Тестовые значения: $test_values"
+            else
+              echo "✅ SMAPE ($smape_value%) в пределах порога $SMAPE_THRESHOLD%"
+            fi
+          
+            # Формируем результат теста с полной информацией
             test_result=$(jq -n \
               --arg name "$base_name" \
               --arg method "$predicted_method" \
               --argjson smape "$smape_value" \
               --argjson pred "$predicted_values" \
+              --argjson test "$test_values" \
+              --arg alpha "$alpha" \
+              --arg beta "$beta" \
+              --arg gamma "$gamma" \
+              --arg season "$seasonality" \
+              --arg threshold "$SMAPE_THRESHOLD" \
+              --arg status "$(if (( $(echo "$smape_value > $SMAPE_THRESHOLD" | bc -l) )); then echo "FAIL"; else echo "PASS"; fi)" \
               '{
                 test_case: $name,
                 method_used: $method,
+                parameters: {
+                  alpha: $alpha,
+                  beta: $beta,
+                  gamma: $gamma,
+                  seasonality: $season
+                },
                 smape: $smape,
+                threshold: ($threshold | tonumber),
+                status: $status,
                 predicted_values: $pred,
+                test_values: $test,
                 timestamp: now | strftime("%Y-%m-%dT%H:%M:%SZ")
               }')
-
+          
             jq --argjson new "$test_result" '. += [$new]' $REPORT_FILE > tmp.json && mv tmp.json $REPORT_FILE
-
+          
           done
+          
           echo "Report generated: $REPORT_FILE"
           cat $REPORT_FILE
+          
+          # Завершаем с ошибкой, если хотя бы один тест не прошел
+          if [ $TEST_FAILED -eq 1 ]; then
+            echo "❌ Некоторые тесты не прошли проверку качества!"
+            exit 1
+          else
+            echo "✅ Все тесты успешно прошли проверку качества!"
+          fi
 
       - name: Commit and push report
         run: |
