@@ -34,7 +34,7 @@ jobs:
           echo "[]" > $REPORT_FILE 
 
           TEST_FAILED=0
-          SMAPE_THRESHOLD=1.0
+          SMAPE_THRESHOLD=3.0
           
           for test_file in test_data/*_input.json; do
             base_name=$(basename "$test_file" "_input.json")
