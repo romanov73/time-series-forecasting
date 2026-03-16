@@ -1,0 +1,92 @@
+name: Some for MLOPS
+run-name: ${{ github.actor }} is testing out GitHub Actions
+on: [ push ]
+
+permissions:
+  contents: write
+
+jobs:
+  evaluate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare environment
+        run: sudo apt-get update && sudo apt-get install -y curl jq
+
+      - name: Build and Run Spring Boot in background
+        run: |
+          bash ./gradlew bootRun &
+          echo "App is starting..."
+
+      - name: Wait for Spring Boot to be ready
+        run: |
+          timeout 180s bash -c 'until curl -s localhost:8080/actuator/health | grep "UP"; do sleep 5; done'
+          echo "App is UP and running!"
+
+      - name: Run evaluation and generate report
+        run: |
+          # Создаем папку для отчетов, если её нет
+          mkdir -p reports
+          # Генерируем имя файла отчета с датой
+          REPORT_FILE="reports/report_$(date +'%Y-%m-%d').json"
+          echo "[]" > $REPORT_FILE # Инициализируем пустым массивом
+
+          # Проходим по всем тестовым примерам
+          for test_file in test_data/*_input.json; do
+            # Получаем базовое имя теста (например, case_1)
+            base_name=$(basename "$test_file" "_input.json")
+            expected_file="test_data/${base_name}_expected.json"
+
+            echo "Testing $base_name..."
+
+            # 1. Вызов вашего API
+            response=$(curl -s -X POST "http://localhost:8080/api/1.0/getForecast" \
+              -H "Content-Type: application/json" \
+              -d @$test_file)
+
+            # Извлекаем предсказание и метод из ответа
+            # Пример для JQ - адаптируйте под точную структуру ответа API!
+            predicted_values=$(echo $response | jq -c '.timeSeries.values | map(.value)')
+            predicted_method=$(echo $response | jq -r '.timeSeriesMethod.name // "unknown"')
+            expected_values=$(jq -c '.expected_forecast_values' $expected_file)
+
+            # Вычисляем метрику качества (например, MSE) с помощью jq
+            # Это чуть сложнее, но без Python. Создаем маленький jq-скрипт.
+            mse=$(jq -n \
+              --argjson pred "$predicted_values" \
+              --argjson exp "$expected_values" \
+              '[$pred, $exp] | transpose | map((.[0] - .[1]) | . * .) | add / length')
+
+            # Формируем JSON-объект с результатами теста
+            test_result=$(jq -n \
+              --arg name "$base_name" \
+              --arg method "$predicted_method" \
+              --argjson mse "$mse" \
+              --argjson pred "$predicted_values" \
+              '{
+                test_case: $name,
+                method_used: $method,
+                mse: $mse,
+                predicted_values: $pred,
+                timestamp: now | strftime("%Y-%m-%dT%H:%M:%SZ")
+              }')
+
+            # Добавляем результат в общий отчет
+            jq --argjson new "$test_result" '. += [$new]' $REPORT_FILE > tmp.json && mv tmp.json $REPORT_FILE
+
+          done
+          echo "Report generated: $REPORT_FILE"
+          cat $REPORT_FILE
+
+      - name: Commit and push report
+        run: |
+          git config --global user.name 'romanov73'
+          git config --global user.email 'a.romanov@ulstu.ru'
+          git add reports/
+          # Коммитим только если есть изменения
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: add weekly model quality report for $(date +'%Y-%m-%d')"
+          git push

@@ -1,0 +1,231 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-spring4-4.dtd">
+<html
+        xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" xmlns:th="http://www.w3.org/1999/xhtml"
+        layout:decorate="~{default}">
+<head>
+    <title>Time series smoothing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+</head>
+<div class="container" layout:fragment="content">
+    <script src="/webjars/highcharts/7.0.0/highcharts.js"></script>
+    <script th:inline="javascript" th:if="${timeSeries != null}">
+        $(document).ready(function () {
+            var chart = {
+                renderTo: 'container',
+                style: {
+                    fontFamily: 'arial'
+                }
+            };
+
+            var title = {
+                text: [[
+        #
+            {
+                messages.time_series_forecast
+            }
+        ]]
+        }
+            ;
+            var xAxis = {
+                categories: [[${dates}]],
+                title: {
+                    enabled: true,
+                    text: [[
+        #
+            {
+                messages.date
+            }
+        ]]
+        },
+            startOnTick: true,
+                endOnTick
+        :
+            true,
+                showLastLabel
+        :
+            true
+        }
+            ;
+            var yAxis = {
+                title: {
+                    text: [[
+        #
+            {
+                messages.value
+            }
+        ]]
+        }
+        }
+            ;
+            var plotOptions = {
+                scatter: {
+                    marker: {
+                        radius: 5,
+                        states: {
+                            hover: {
+                                enabled: true,
+                                lineColor: 'rgb(100,100,100)'
+                            }
+                        }
+                    },
+                    states: {
+                        hover: {
+                            marker: {
+                                enabled: true
+                            }
+                        }
+                    },
+                    tooltip: {
+                        headerFormat: '<b>{series.name}</b><br>',
+                        pointFormat: '{point.y}'
+                    }
+                }
+            };
+            var series = [
+                {
+                    name: [[
+        #
+            {
+                messages.time_series
+            }
+        ]],
+            color: 'rgba(119,152,191,0.5)',
+                connectNulls
+        :
+            true,
+                data
+        :
+            [[${timeSeries}]]
+        },
+            {
+                name: [[
+            #
+                {
+                    messages.time_series_model
+                }
+            ]],
+                color: 'rgba(255,200,0,0.5)',
+                    connectNulls
+            :
+                true,
+                    data
+            :
+                [[${model}]]
+            }
+        ,
+            {
+                name: [[
+            #
+                {
+                    messages.time_series_test_forecast
+                }
+            ]],
+                color: 'rgba(255,0,0,0.5)',
+                    connectNulls
+            :
+                true,
+                    data
+            :
+                [[${testForecast}]]
+            }
+        ,
+            {
+                name: [[
+            #
+                {
+                    messages.time_series_forecast_short
+                }
+            ]],
+                color: 'rgba(255,0,0,0.5)',
+                    connectNulls
+            :
+                true,
+                    data
+            :
+                [[${forecast}]]
+            }
+        ]
+            ;
+
+            var json = {};
+            json.chart = chart;
+            json.title = title;
+            json.xAxis = xAxis;
+            json.yAxis = yAxis;
+            json.series = series;
+            json.plotOptions = plotOptions;
+            $('#chart').highcharts(json);
+        });
+
+
+    </script>
+    <form action="#" th:action="chartMethod" th:object="${chartForm}">
+        <div class="row">
+            <div class="col-md-12 col-sm-12 col-lg-6">
+                <select id="select-set" class="selectpicker form-group" data-live-search="true" th:field="*{set}"
+                        data-width="90%" onchange="$('#select-ts').val(''); form.submit();">
+                    <option value="">Набор временных рядов</option>
+                    <option th:each="set : ${sets}"
+                            th:value="${set.key}"
+                            th:utext="${set.key}">
+                    </option>
+                </select>
+                <script th:inline="javascript" th:if="*{set != null}">
+                    $('#select-set').val([[ * {set.key}]
+                    ])
+                    ;
+                    $('#select-set').selectpicker('refresh');
+
+
+                </script>
+
+                <select id="select-ts" class="selectpicker form-group" data-live-search="true"
+                        th:field="*{timeSeriesMeta}"
+                        data-width="90%" onchange="$('#need-forecast').val(false); form.submit();">
+                    <option value="">Временной ряд</option>
+                    <option th:each="ts : ${listTimeSeries}"
+                            th:value="${ts.key}"
+                            th:utext="${ts.key}">
+                    </option>
+                </select>
+                <script th:inline="javascript" th:if="*{timeSeriesMeta != null}">
+                    $('#select-ts').val([[ * {timeSeriesMeta.key}]
+                    ])
+                    ;
+                    $('#select-ts').selectpicker('refresh');
+
+                </script>
+
+                <select id="select-method" class="selectpicker form-group" data-live-search="true"
+                        th:field="*{methodClassName}"
+                        data-width="90%" onchange="$('#need-forecast').val(false); form.submit();">
+                    <option value="">Метод прогнозирования</option>
+                    <option th:each="method : ${methods}"
+                            th:value="${method.key}"
+                            th:utext="${method.name}">
+                    </option>
+                </select>
+                <script th:inline="javascript" th:if="*{methodClassName != null && methodClassName != ''}">
+                    $('#select-method').val([[ * {methodClassName}]
+                    ])
+                    ;
+                    $('#select-method').selectpicker('refresh');
+                </script>
+
+                <input id="need-forecast" type="hidden" th:field="*{needForecast}">
+                <button th:if="*{methodClassName != null && methodClassName != ''}" type="button"
+                        class="btn btn-primary" onclick="$('#need-forecast').val(true); form.submit();">
+                    Построить прогноз
+                </button>
+                <div th:if="${forecastDescription != null && forecastDescription.timeSeriesMethod != null}">
+                    <p> Метод прогнозирования: <span th:text="${forecastDescription.timeSeriesMethod}"> </span>
+                    <p> Оценка: <span th:text="${forecastDescription.score.value}"> </span>
+                </div>
+            </div>
+            <div class="col-md-12 col-sm-12 col-lg-6">
+                <div id="chart" style="width: 600px; height: 500px;"></div>
+            </div>
+        </div>
+    </form>
+</div>
+</html>

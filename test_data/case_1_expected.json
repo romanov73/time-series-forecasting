@@ -1,0 +1,8 @@
+{
+  "expected_forecast_values": [
+    11.8,
+    12.5,
+    13.1
+  ],
+  "expected_method": "AddTrendAddSeason"
+}

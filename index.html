@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ML Model Quality Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+<h1>Мониторинг качества модели временных рядов</h1>
+<canvas id="myChart" width="400" height="200"></canvas>
+<script>
+    $(document).ready(function () {
+        var ctx = document.getElementById('myChart').getContext('2d');
+        var chartData = {labels: [], datasets: []};
+        var testCases = {};
+
+        // Получаем список файлов отчетов через GitHub API
+        $.getJSON('https://api.github.com/repos/your_username/your_repo_name/contents/reports', function (files) {
+            var promises = [];
+            files.forEach(function (file) {
+                if (file.name.endsWith('.json')) {
+                    // Для каждого файла загружаем его содержимое
+                    promises.push(
+                        $.get(file.download_url).then(function (reportContent) {
+                            var reportDate = file.name.replace('report_', '').replace('.json', '');
+                            reportContent.forEach(function (testResult) {
+                                if (!testCases[testResult.test_case]) {
+                                    testCases[testResult.test_case] = {
+                                        label: testResult.test_case,
+                                        data: [],
+                                        dates: []
+                                    };
+                                }
+                                testCases[testResult.test_case].data.push({x: reportDate, y: testResult.mse});
+                            });
+                        })
+                    );
+                }
+            });
+
+            $.when.apply($, promises).then(function () {
+                // Подготавливаем данные для Chart.js
+                var datasets = [];
+                for (var testCase in testCases) {
+                    datasets.push({
+                        label: testCase,
+                        data: testCases[testCase].data.sort((a, b) => a.x.localeCompare(b.x)),
+                        borderColor: '#' + Math.floor(Math.random() * 16777215).toString(16),
+                        fill: false
+                    });
+                }
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {datasets: datasets},
+                    options: {
+                        scales: {x: {type: 'time', time: {unit: 'day'}, title: {display: true, text: 'Дата'}}},
+                        responsive: true,
+                        title: {display: true, text: 'Динамика MSE по тестовым кейсам'}
+                    }
+                });
+            });
+        });
+    });
+</script>
+</body>
+</html>
