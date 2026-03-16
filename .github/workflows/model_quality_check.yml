@@ -55,7 +55,7 @@ jobs:
               '{
                 test_case: $name,
                 method_used: $method,
-                smape: $smape_value,
+                smape: $smape,
                 predicted_values: $pred,
                 timestamp: now | strftime("%Y-%m-%dT%H:%M:%SZ")
               }')

@@ -1,8 +1,9 @@
 {
   "expected_forecast_values": [
-    11.8,
-    12.5,
-    13.1
+    0.663070988,
+    0.966993681883637,
+    1.5778524362309203,
+    0.8775953308322151
   ],
   "expected_method": "AddTrendAddSeason"
 }
